@@ -1,0 +1,14 @@
+{
+  "name": "yt-proxy-server",
+  "version": "1.0.0",
+  "description": "Proxy server for streaming YouTube videos",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "@distube/ytdl-core": "^4.14.4"
+  }
+}
