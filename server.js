@@ -31,11 +31,13 @@ app.get('/stream', (req, res) => {
 
         console.log(`Streaming video via native yt-dlp: ${videoId}`);
 
-        // Roda o yt-dlp nativo instalado no Docker
+        // Argumentos avançados para "enganar" o sistema antibot do YouTube (Simulando API Android)
         const ytDlpArgs = [
             url,
             '-o', '-', 
             '-f', 'best[ext=mp4]', 
+            '--extractor-args', 'youtube:player_client=android,ios', // Finge ser um app mobile
+            '--extractor-args', 'youtube:player_skip=webpage,configs', // Pula o download da página HTML que tem o Captcha
             '--quiet',
             '--no-warnings'
         ];
@@ -64,5 +66,5 @@ app.get('/stream', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Proxy server is running on port ${PORT} using native yt-dlp`);
+    console.log(`Proxy server is running on port ${PORT} using native yt-dlp with Bypass`);
 });
