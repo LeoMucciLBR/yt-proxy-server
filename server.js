@@ -13,11 +13,11 @@ app.get('/health', (req, res) => {
     res.status(200).send('OK');
 });
 
-const PIPED_APIS = [
-    'https://pipedapi.kavin.rocks',
-    'https://pipedapi.tokhmi.xyz',
-    'https://pipedapi.syncpundit.io',
-    'https://piped-api.garudalinux.org'
+const INVIDIOUS_APIS = [
+    'https://yewtu.be',
+    'https://vid.puffyan.us',
+    'https://invidious.flokinet.to',
+    'https://invidious.jing.rocks'
 ];
 
 app.get('/stream', async (req, res) => {
@@ -28,23 +28,28 @@ app.get('/stream', async (req, res) => {
     }
 
     try {
-        let streamInfo = null;
+        let streamUrl = null;
         let successfulApi = null;
 
-        // Tenta buscar o vídeo em várias APIs do Piped caso a principal esteja fora do ar (erro 526, 502, etc)
-        for (const api of PIPED_APIS) {
+        for (const api of INVIDIOUS_APIS) {
             try {
-                console.log(`Asking Piped API (${api}) for video: ${videoId}`);
-                const pipedReq = await fetch(`${api}/streams/${videoId}`);
+                console.log(`Asking Invidious API (${api}) for video: ${videoId}`);
+                const invReq = await fetch(`${api}/api/v1/videos/${videoId}`);
                 
-                if (pipedReq.ok) {
-                    const data = await pipedReq.json();
-                    const validStream = data.videoStreams.find(s => s.mimeType.includes('mp4') && s.videoOnly === false);
+                if (invReq.ok) {
+                    const data = await invReq.json();
                     
-                    if (validStream && validStream.url) {
-                        streamInfo = validStream;
-                        successfulApi = api;
-                        break; // Sucesso! Sai do loop.
+                    if (data.formatStreams && data.formatStreams.length > 0) {
+                        // Tenta pegar o 720p (itag 22), se não tiver pega o 360p (itag 18) ou o primeiro disponível
+                        const bestStream = data.formatStreams.find(s => s.qualityLabel === '720p' || s.itag === '22') ||
+                                           data.formatStreams.find(s => s.qualityLabel === '360p' || s.itag === '18') ||
+                                           data.formatStreams[0];
+                        
+                        if (bestStream && bestStream.url) {
+                            streamUrl = bestStream.url;
+                            successfulApi = api;
+                            break; // Sucesso! Sai do loop.
+                        }
                     }
                 }
             } catch (e) {
@@ -52,21 +57,19 @@ app.get('/stream', async (req, res) => {
             }
         }
 
-        if (!streamInfo) {
-            throw new Error('Todas as APIs do Piped falharam ou o vídeo é inválido.');
+        if (!streamUrl) {
+            throw new Error('Todas as APIs do Invidious falharam ou o vídeo não tem stream mp4 combinado.');
         }
 
-        console.log(`Piping from Piped Proxy CDN (via ${successfulApi})...`);
+        console.log(`Piping from Invidious Proxy CDN (via ${successfulApi})...`);
 
-        // 2. Baixar o vídeo do proxy do Piped e enviar para o usuário via Pipe
-        const videoResponse = await fetch(streamInfo.url);
+        const videoResponse = await fetch(streamUrl);
         
         if (!videoResponse.ok) throw new Error(`CDN returned ${videoResponse.status}`);
 
         res.header('Content-Type', 'video/mp4');
         res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
 
-        // Transforma o Web Stream nativo do fetch em um Node Stream e faz o pipe
         const { Readable } = require('stream');
         Readable.fromWeb(videoResponse.body).pipe(res);
 
@@ -79,5 +82,5 @@ app.get('/stream', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Proxy server is running on port ${PORT} using Multi-Piped API Proxy`);
+    console.log(`Proxy server is running on port ${PORT} using Multi-Invidious API Proxy`);
 });
