@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const youtubedl = require('youtube-dl-exec');
+const { spawn } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -29,23 +29,30 @@ app.get('/stream', (req, res) => {
         res.header('Pragma', 'no-cache');
         res.header('Expires', '0');
 
-        console.log(`Streaming video via yt-dlp: ${videoId}`);
+        console.log(`Streaming video via native yt-dlp: ${videoId}`);
 
-        // O yt-dlp nativo do Docker vai interceptar e fazer o bypass do YouTube
-        const subprocess = youtubedl.exec(url, {
-            o: '-', 
-            f: 'best[ext=mp4]', 
-            quiet: true,
-            noWarnings: true
-        }, { stdio: ['ignore', 'pipe', 'ignore'] });
+        // Roda o yt-dlp nativo instalado no Docker
+        const ytDlpArgs = [
+            url,
+            '-o', '-', 
+            '-f', 'best[ext=mp4]', 
+            '--quiet',
+            '--no-warnings'
+        ];
+
+        const subprocess = spawn('yt-dlp', ytDlpArgs);
 
         subprocess.stdout.pipe(res);
 
         subprocess.on('error', (err) => {
-            console.error('Subprocess error:', err);
+            console.error('Subprocess spawn error:', err);
             if (!res.headersSent) {
-                res.status(500).json({ error: 'Failed to stream video via yt-dlp' });
+                res.status(500).json({ error: 'Failed to stream video via yt-dlp (Spawn Error)' });
             }
+        });
+        
+        subprocess.stderr.on('data', (data) => {
+             console.error(`yt-dlp stderr: ${data}`);
         });
 
     } catch (error) {
@@ -57,5 +64,5 @@ app.get('/stream', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Proxy server is running on port ${PORT} using yt-dlp (Dockerized)`);
+    console.log(`Proxy server is running on port ${PORT} using native yt-dlp`);
 });

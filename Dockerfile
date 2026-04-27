@@ -1,9 +1,12 @@
-FROM node:18-bullseye-slim
+FROM node:20-bullseye-slim
 
-# Instala o Python 3 e o FFMPEG (necessários para o yt-dlp funcionar perfeitamente)
+# Instala Python, FFmpeg e pip
 RUN apt-get update && \
-    apt-get install -y python3 ffmpeg curl && \
+    apt-get install -y python3 python3-pip ffmpeg curl && \
     rm -rf /var/lib/apt/lists/*
+
+# Instala a versão mais recente e oficial do yt-dlp direto da fonte do Python (Bypassa o GitHub Rate Limit)
+RUN pip3 install yt-dlp
 
 WORKDIR /app
 
