@@ -21,37 +21,28 @@ app.get('/stream', async (req, res) => {
     }
 
     try {
-        console.log(`Asking Cobalt API for video: ${videoId}`);
+        console.log(`Asking Piped API for video: ${videoId}`);
         
-        // 1. Pedir a URL do vídeo limpo para o Cobalt
-        const cobaltReq = await fetch("https://api.cobalt.tools/api/json", {
-            method: "POST",
-            headers: {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                url: `https://www.youtube.com/watch?v=${videoId}`,
-                vQuality: "720",
-                disableMetadata: true
-            })
-        });
+        // 1. Pedir a URL do stream para a API do Piped (Open Source, amigável a datacenters)
+        const pipedReq = await fetch(`https://pipedapi.kavin.rocks/streams/${videoId}`);
 
-        if (!cobaltReq.ok) {
-            throw new Error('Cobalt API failed to process video');
+        if (!pipedReq.ok) {
+            throw new Error(`Piped API failed: ${pipedReq.status}`);
         }
 
-        const data = await cobaltReq.json();
-        const videoStreamUrl = data.url;
+        const data = await pipedReq.json();
+        
+        // Procuramos o primeiro stream que seja mp4 e que NÃO seja apenas vídeo (tem que ter áudio junto)
+        const streamInfo = data.videoStreams.find(s => s.mimeType.includes('mp4') && s.videoOnly === false);
 
-        if (!videoStreamUrl) {
-            throw new Error('No stream URL returned from Cobalt');
+        if (!streamInfo || !streamInfo.url) {
+            throw new Error('No valid mp4 stream (audio+video) returned from Piped');
         }
 
-        console.log(`Piping from Cobalt CDN...`);
+        console.log(`Piping from Piped Proxy CDN...`);
 
-        // 2. Baixar o vídeo do CDN do Cobalt e enviar para o usuário via Pipe (Túnel Duplo)
-        const videoResponse = await fetch(videoStreamUrl);
+        // 2. Baixar o vídeo do proxy do Piped e enviar para o usuário via Pipe
+        const videoResponse = await fetch(streamInfo.url);
         
         if (!videoResponse.ok) throw new Error(`CDN returned ${videoResponse.status}`);
 
@@ -71,5 +62,5 @@ app.get('/stream', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Proxy server is running on port ${PORT} using Cobalt Node Proxy`);
+    console.log(`Proxy server is running on port ${PORT} using Piped API Proxy`);
 });
