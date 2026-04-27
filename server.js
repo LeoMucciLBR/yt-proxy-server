@@ -39,6 +39,8 @@ app.get('/stream', (req, res) => {
             '-o', '-', 
             '-f', '18/best[ext=mp4]/b', // Tenta forçar o 360p (mais estável), ou cai pro melhor mp4
             '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', // Essencial para o cookie não ser rejeitado
+            '--extractor-args', 'youtube:player_client=tv,web',
+            '--extractor-args', 'youtube:player_skip=webpage,configs',
             '--quiet',
             '--no-warnings'
         ];
