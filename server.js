@@ -13,6 +13,13 @@ app.get('/health', (req, res) => {
     res.status(200).send('OK');
 });
 
+const PIPED_APIS = [
+    'https://pipedapi.kavin.rocks',
+    'https://pipedapi.tokhmi.xyz',
+    'https://pipedapi.syncpundit.io',
+    'https://piped-api.garudalinux.org'
+];
+
 app.get('/stream', async (req, res) => {
     const videoId = req.query.v;
 
@@ -21,25 +28,35 @@ app.get('/stream', async (req, res) => {
     }
 
     try {
-        console.log(`Asking Piped API for video: ${videoId}`);
-        
-        // 1. Pedir a URL do stream para a API do Piped (Open Source, amigável a datacenters)
-        const pipedReq = await fetch(`https://pipedapi.kavin.rocks/streams/${videoId}`);
+        let streamInfo = null;
+        let successfulApi = null;
 
-        if (!pipedReq.ok) {
-            throw new Error(`Piped API failed: ${pipedReq.status}`);
+        // Tenta buscar o vídeo em várias APIs do Piped caso a principal esteja fora do ar (erro 526, 502, etc)
+        for (const api of PIPED_APIS) {
+            try {
+                console.log(`Asking Piped API (${api}) for video: ${videoId}`);
+                const pipedReq = await fetch(`${api}/streams/${videoId}`);
+                
+                if (pipedReq.ok) {
+                    const data = await pipedReq.json();
+                    const validStream = data.videoStreams.find(s => s.mimeType.includes('mp4') && s.videoOnly === false);
+                    
+                    if (validStream && validStream.url) {
+                        streamInfo = validStream;
+                        successfulApi = api;
+                        break; // Sucesso! Sai do loop.
+                    }
+                }
+            } catch (e) {
+                console.log(`API ${api} falhou, tentando a próxima...`);
+            }
         }
 
-        const data = await pipedReq.json();
-        
-        // Procuramos o primeiro stream que seja mp4 e que NÃO seja apenas vídeo (tem que ter áudio junto)
-        const streamInfo = data.videoStreams.find(s => s.mimeType.includes('mp4') && s.videoOnly === false);
-
-        if (!streamInfo || !streamInfo.url) {
-            throw new Error('No valid mp4 stream (audio+video) returned from Piped');
+        if (!streamInfo) {
+            throw new Error('Todas as APIs do Piped falharam ou o vídeo é inválido.');
         }
 
-        console.log(`Piping from Piped Proxy CDN...`);
+        console.log(`Piping from Piped Proxy CDN (via ${successfulApi})...`);
 
         // 2. Baixar o vídeo do proxy do Piped e enviar para o usuário via Pipe
         const videoResponse = await fetch(streamInfo.url);
@@ -62,5 +79,5 @@ app.get('/stream', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Proxy server is running on port ${PORT} using Piped API Proxy`);
+    console.log(`Proxy server is running on port ${PORT} using Multi-Piped API Proxy`);
 });
